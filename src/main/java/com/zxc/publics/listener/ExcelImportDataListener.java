@@ -9,6 +9,7 @@ import com.zxc.publics.annotation.ImportExcelField;
 import com.zxc.publics.exception.ExcelHeadException;
 import com.zxc.publics.functionalInterface.ThrowingConsumer;
 import com.zxc.publics.functionalInterface.ThrowingFunction;
+import com.zxc.publics.functionalInterface.ThrowingRunnable;
 import com.zxc.publics.handler.CustomCellColorWriteHandler;
 import com.zxc.publics.handler.CustomCellWriteHandler;
 import com.zxc.publics.util.StringUtil;
@@ -49,11 +50,17 @@ public class ExcelImportDataListener<T> extends AnalysisEventListener<Map<Intege
     // 实体类类型
     private Class<?> clazz;
 
+    // 导入开始前自定义操作
+    private ThrowingRunnable<Exception> beforeImportMethod;
+
     // 数据导入方法
     private ThrowingConsumer<T, Exception> importMethod;
 
     // 校验数据是否合法方法
     private ThrowingFunction<T, Boolean, Exception> checkDataMethod;
+
+    // 导入结束后自定义操作
+    private ThrowingRunnable<Exception> afterImportMethod;
 
     // 导入数据使用的线程池
     private ExecutorService executorService;
@@ -103,23 +110,27 @@ public class ExcelImportDataListener<T> extends AnalysisEventListener<Map<Intege
     // 导入结束时间
     private long endTime;
 
-    public ExcelImportDataListener(int excelHeadRowIndex, Class<?> clazz, int batchSize, ThrowingConsumer<T, Exception> importMethod, ThrowingFunction<T, Boolean, Exception> checkDataMethod, String illegalDataExportFileName, long startTime) {
+    public ExcelImportDataListener(int excelHeadRowIndex, Class<?> clazz, int batchSize, ThrowingRunnable<Exception> beforeImportMethod, ThrowingRunnable<Exception> afterImportMethod, ThrowingConsumer<T, Exception> importMethod, ThrowingFunction<T, Boolean, Exception> checkDataMethod, String illegalDataExportFileName, long startTime) {
         this.excelHeadRowIndex = excelHeadRowIndex;
         this.clazz = clazz;
         this.batchSize = batchSize;
+        this.beforeImportMethod = beforeImportMethod;
         this.importMethod = importMethod;
         this.checkDataMethod = checkDataMethod;
+        this.afterImportMethod = afterImportMethod;
         this.illegalDataExportFileName = illegalDataExportFileName.endsWith(".xlsx") ? illegalDataExportFileName : illegalDataExportFileName + ".xlsx";
         this.startTime = startTime;
         this.executorService = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors() + 1, (Runtime.getRuntime().availableProcessors() + 1) * 2, 3L, TimeUnit.MINUTES, new LinkedBlockingQueue<>(500), new NamedThreadFactory("excelImportListener"), new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
-    public ExcelImportDataListener(int excelHeadRowIndex, Class<?> clazz, int batchSize, ThrowingConsumer<T, Exception> importMethod, ThrowingFunction<T, Boolean, Exception> checkDataMethod, String illegalDataExportFileName, long startTime, ExecutorService executorService) {
+    public ExcelImportDataListener(int excelHeadRowIndex, Class<?> clazz, int batchSize, ThrowingRunnable<Exception> beforeImportMethod, ThrowingRunnable<Exception> afterImportMethod, ThrowingConsumer<T, Exception> importMethod, ThrowingFunction<T, Boolean, Exception> checkDataMethod, String illegalDataExportFileName, long startTime, ExecutorService executorService) {
         this.excelHeadRowIndex = excelHeadRowIndex;
         this.clazz = clazz;
         this.batchSize = batchSize;
+        this.beforeImportMethod = beforeImportMethod;
         this.importMethod = importMethod;
         this.checkDataMethod = checkDataMethod;
+        this.afterImportMethod = afterImportMethod;
         this.illegalDataExportFileName = illegalDataExportFileName.endsWith(".xlsx") ? illegalDataExportFileName : illegalDataExportFileName + ".xlsx";
         this.startTime = startTime;
         this.executorService = executorService;
@@ -149,6 +160,7 @@ public class ExcelImportDataListener<T> extends AnalysisEventListener<Map<Intege
         try {
             handleDataList();
             handleErrorList();
+            afterImportMethod.run();
             log.info("总数据量: {}, 导入数量: {}, 错误数量: {}", totalNum.get(), addNum.get(), errorNum.get());
         } catch (Exception e) {
             log.error("doAfterAllAnalysed error", e);
@@ -217,6 +229,9 @@ public class ExcelImportDataListener<T> extends AnalysisEventListener<Map<Intege
             if (finalI == excelHeadRowIndex - 2) {
                 checkExcelFieldNames(integerStringMap);
                 return;
+            }
+            if (finalI == excelHeadRowIndex - 1) {
+                beforeImportMethod.run();
             }
         }
         T t = getData(integerStringMap);

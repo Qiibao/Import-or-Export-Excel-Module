@@ -25,4 +25,20 @@ public interface ImportModuleInterface<T> {
         return Objects.nonNull(data);
     }
 
+    /**
+     * 核心方法：导入完成之后，自定义操作
+     * 注：如果不需要后续操作，不需要重写此方法
+     */
+    default void afterImport() throws Exception {
+
+    }
+
+    /**
+     * 核心方法：导入开始之前，自定义操作
+     * 注：如果不需要后续操作，不需要重写此方法
+     */
+    default void beforeImport() throws Exception {
+
+    }
+
 }

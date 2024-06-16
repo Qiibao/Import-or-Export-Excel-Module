@@ -184,7 +184,7 @@ public abstract class ImportExcelModule<T> implements ImportModuleInterface<T> {
     private void handleExcelData() throws Exception {
 
         log.info("handleExcelData start >>> class: {}", clazz);
-        importDataListener = new ExcelImportDataListener<>(excelHeadRowIndex, clazz, everyAddDataNum, this::importExcelData, this::checkExcelData, illegalDataExportFileName, startTime);
+        importDataListener = new ExcelImportDataListener<>(excelHeadRowIndex, clazz, everyAddDataNum, this::beforeImport, this::afterImport, this::importExcelData, this::checkExcelData, illegalDataExportFileName, startTime);
         EasyExcel.read(file.getInputStream(), importDataListener).headRowNumber(1).sheet(0).doReadSync();
 
     }
