@@ -396,6 +396,7 @@ public class ExportExcelModule<T> implements ExportModuleInterface<T> {
         // 拿到对象的所有属性
         Arrays.stream(clazz.getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(ExportExcelField.class))
+                .sorted(Comparator.comparingInt(field -> field.getAnnotation(ExportExcelField.class).order()))
                 .forEach(field -> {
                     try {
                         // 设置属性是可以访问的(私有的也可以)
