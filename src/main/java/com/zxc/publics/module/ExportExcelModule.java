@@ -5,6 +5,7 @@ import com.alibaba.excel.EasyExcelFactory;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.alibaba.excel.write.style.HorizontalCellStyleStrategy;
+import com.zxc.publics.functionalInterface.ThrowingFunction;
 import com.zxc.publics.handler.CustomCellWriteHandler;
 import com.zxc.publics.handler.ExcelColumnMergeHandler;
 import com.zxc.publics.entity.ExportExcelEntity;
@@ -25,7 +26,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
@@ -399,10 +402,19 @@ public class ExportExcelModule<T> implements ExportModuleInterface<T> {
                 .sorted(Comparator.comparingInt(field -> field.getAnnotation(ExportExcelField.class).order()))
                 .forEach(field -> {
                     try {
-                        // 设置属性是可以访问的(私有的也可以)
                         field.setAccessible(true);
-                        // 拼接属性值
-                        dataList.add(field.get(t) == null ? field.getAnnotation(ExportExcelField.class).defaultValue() : field.get(t));
+                        Class<? extends ThrowingFunction<?, ?, ?>> converter = field.getAnnotation(ExportExcelField.class).converter();
+                        Method applyMethod = !Objects.equals(converter, ExportExcelField.DefaultConverter.class) ? converter.getDeclaredMethod("apply", field.getType()) : null;
+                        Object invokeResult;
+                        if (applyMethod != null) {
+                            applyMethod.setAccessible(true);
+                            Constructor<? extends ThrowingFunction<?, ?, ?>> declaredConstructor = converter.getDeclaredConstructor();
+                            declaredConstructor.setAccessible(true);
+                            invokeResult = applyMethod.invoke(declaredConstructor.newInstance(), field.get(t));
+                        } else {
+                            invokeResult = field.get(t);
+                        }
+                        dataList.add(invokeResult == null ? field.getAnnotation(ExportExcelField.class).defaultValue() : invokeResult);
                     } catch (Exception e) {
                         log.error("getDataList error", e);
                     }
